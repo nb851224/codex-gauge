@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.image = makeUsageRingIcon(remaining: remaining, remainingTime: remainingTime)
         button.title = usage.menuTitle
         if let remaining, let remainingTime {
-            button.toolTip = "外圈：剩余用量 \(remaining)%  ·  内圈：剩余时间 \(remainingTime)%  ·  \(usage.resetText)重置"
+            button.toolTip = "外圈：剩余用量 \(remaining)%  ·  扇形：剩余时间 \(remainingTime)%  ·  \(usage.resetText)重置"
         } else {
             button.toolTip = "Codex 用量"
         }
@@ -85,41 +85,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         image.lockFocus()
 
         let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        let radius: CGFloat = 6.5
-        let startAngle: CGFloat = 220
-        let sweep: CGFloat = 280
+        let startAngle: CGFloat = 90
 
-        if remaining == nil && remainingTime == nil {
-            drawMetricArc(
-                center: center,
-                radius: radius,
-                lineWidth: 3.8,
-                percent: 100,
-                alpha: 0.18,
-                startAngle: startAngle,
-                sweep: sweep
-            )
-        } else {
-            // Both metrics share the exact same path and starting point.
-            drawMetricArc(
-                center: center,
-                radius: radius,
-                lineWidth: 3.8,
-                percent: remainingTime,
-                alpha: 0.32,
-                startAngle: startAngle,
-                sweep: sweep
-            )
-            drawMetricArc(
-                center: center,
-                radius: radius,
-                lineWidth: 1.8,
-                percent: remaining,
-                alpha: 1,
-                startAngle: startAngle,
-                sweep: sweep
-            )
-        }
+        drawTimeSector(
+            center: center,
+            radius: 4.7,
+            percent: remainingTime,
+            startAngle: startAngle
+        )
+        drawUsageTrack(center: center, radius: 6.7, lineWidth: 1.9)
+        drawUsageArc(
+            center: center,
+            radius: 6.7,
+            lineWidth: 1.9,
+            percent: remaining,
+            startAngle: startAngle
+        )
 
         if remaining == nil || remainingTime == nil {
             let dot = NSBezierPath(ovalIn: NSRect(x: 7.8, y: 7.8, width: 2.4, height: 2.4))
@@ -137,27 +118,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    private func drawMetricArc(
+    private func drawTimeSector(
+        center: NSPoint,
+        radius: CGFloat,
+        percent: Int?,
+        startAngle: CGFloat
+    ) {
+        guard let percent else { return }
+        let fraction = CGFloat(min(100, max(0, percent))) / 100
+        guard fraction > 0 else { return }
+
+        let sector = NSBezierPath()
+        sector.move(to: center)
+        sector.appendArc(
+            withCenter: center,
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: startAngle - 360 * fraction,
+            clockwise: true
+        )
+        sector.close()
+        NSColor.black.withAlphaComponent(0.22).setFill()
+        sector.fill()
+    }
+
+    private func drawUsageTrack(center: NSPoint, radius: CGFloat, lineWidth: CGFloat) {
+        let track = NSBezierPath()
+        track.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360)
+        track.lineWidth = lineWidth
+        NSColor.black.withAlphaComponent(0.16).setStroke()
+        track.stroke()
+    }
+
+    private func drawUsageArc(
         center: NSPoint,
         radius: CGFloat,
         lineWidth: CGFloat,
         percent: Int?,
-        alpha: CGFloat,
-        startAngle: CGFloat,
-        sweep: CGFloat
+        startAngle: CGFloat
     ) {
         guard let percent else { return }
         let fraction = CGFloat(min(100, max(0, percent))) / 100
+        guard fraction > 0 else { return }
+
         let arc = NSBezierPath()
         arc.appendArc(
             withCenter: center,
             radius: radius,
             startAngle: startAngle,
-            endAngle: startAngle + sweep * fraction
+            endAngle: startAngle - 360 * fraction,
+            clockwise: true
         )
         arc.lineWidth = lineWidth
         arc.lineCapStyle = .round
-        NSColor.black.withAlphaComponent(alpha).setStroke()
+        NSColor.black.setStroke()
         arc.stroke()
     }
 

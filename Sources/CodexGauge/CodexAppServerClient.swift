@@ -130,7 +130,7 @@ final class CodexAppServerClient {
         sendRequest(
             method: "initialize",
             params: [
-                "clientInfo": ["name": "codex-gauge", "version": "0.2.3"],
+                "clientInfo": ["name": "codex-gauge", "version": "0.2.4"],
                 "capabilities": ["experimentalApi": true]
             ]
         ) { [weak self] _ in
