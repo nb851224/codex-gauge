@@ -110,7 +110,7 @@ final class CodexAppServerClient {
                 self?.inputPipe = nil
                 self?.responseHandlers.removeAll()
                 self?.refreshPending = false
-                self?.reportError("无法连接 Codex。将自动重试。")
+                self?.reportError(L10n.text("client_disconnected"))
             }
         }
 
@@ -122,7 +122,7 @@ final class CodexAppServerClient {
             initialize()
         } catch {
             logger.error("Failed to launch Codex app server: \(error.localizedDescription, privacy: .public)")
-            reportError("无法启动 Codex。请确认已安装 Codex CLI。")
+            reportError(L10n.text("client_launch_failed"))
         }
     }
 
@@ -130,7 +130,7 @@ final class CodexAppServerClient {
         sendRequest(
             method: "initialize",
             params: [
-                "clientInfo": ["name": "codex-gauge", "version": "0.2.4"],
+                "clientInfo": ["name": "codex-gauge", "version": "0.2.5"],
                 "capabilities": ["experimentalApi": true]
             ]
         ) { [weak self] _ in
@@ -158,7 +158,7 @@ final class CodexAppServerClient {
             else {
                 let error = String(describing: response["error"] ?? "none")
                 self.logger.error("Unable to parse account rate-limit response; error=\(error, privacy: .public)")
-                self.reportError("暂时无法读取用量。")
+                self.reportError(L10n.text("client_usage_unavailable"))
                 return
             }
             self.logger.info(
@@ -271,7 +271,7 @@ final class CodexAppServerClient {
         do {
             try inputPipe.fileHandleForWriting.write(contentsOf: data)
         } catch {
-            reportError("与 Codex 的连接已中断。")
+            reportError(L10n.text("client_disconnected"))
         }
     }
 

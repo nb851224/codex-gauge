@@ -56,7 +56,9 @@ final class UsageViewModel: ObservableObject {
     var shortResetText: String {
         guard let shortWindow else { return "--" }
         let remaining = shortWindow.resetsAt.timeIntervalSinceNow
-        return remaining <= 0 ? "即将重置" : "\(DurationText.compact(remaining))后重置"
+        return remaining <= 0
+            ? L10n.text("reset_imminent")
+            : L10n.format("reset_in", DurationText.compact(remaining))
     }
 
     var shortResetExactText: String {
@@ -79,14 +81,16 @@ final class UsageViewModel: ObservableObject {
     var resetText: String {
         guard let resetDate else { return "--" }
         let remaining = resetDate.timeIntervalSinceNow
-        return remaining <= 0 ? "即将重置" : "\(DurationText.compact(remaining))后"
+        return remaining <= 0
+            ? L10n.text("reset_imminent")
+            : L10n.format("time_remaining", DurationText.compact(remaining))
     }
 
     var resetExactText: String {
         guard let resetDate else { return "--" }
         return resetDate.formatted(
             .dateTime
-                .locale(Locale(identifier: "zh_CN"))
+                .locale(L10n.locale)
                 .month(.defaultDigits)
                 .day(.defaultDigits)
                 .hour(.twoDigits(amPM: .omitted))
@@ -95,8 +99,8 @@ final class UsageViewModel: ObservableObject {
     }
 
     var refreshStatusText: String {
-        if errorMessage != nil { return "连接异常" }
-        return isRefreshing ? "更新中" : "已更新"
+        if errorMessage != nil { return L10n.text("connection_issue") }
+        return isRefreshing ? L10n.text("updating") : L10n.text("updated")
     }
 
     var lastUpdatedText: String {
@@ -108,12 +112,12 @@ final class UsageViewModel: ObservableObject {
         guard
             let remainingPercent,
             let resetDate
-        else { return "-- / 24小时" }
+        else { return L10n.text("per_24_hours_empty") }
 
         let hours = resetDate.timeIntervalSinceNow / 3_600
-        guard hours > 0 else { return "-- / 24小时" }
+        guard hours > 0 else { return L10n.text("per_24_hours_empty") }
         let allowance = min(100, Double(remainingPercent) * 24 / hours)
-        return String(format: "%.1f%% / 24小时", allowance)
+        return L10n.format("per_24_hours", allowance)
     }
 
     var recent24HourUsedPercent: Int? {
@@ -156,54 +160,57 @@ final class UsageViewModel: ObservableObject {
 
     var allocationSummary: String {
         if let todayUsedPercent {
-            return "按剩余额度分配 · 今日已用 \(todayUsedPercent)%"
+            return L10n.format("allocation_used_today", todayUsedPercent)
         }
-        return "按剩余额度分配 · 今日数据收集中"
+        return L10n.text("allocation_collecting")
     }
 
     var relativeUpdateText: String {
-        if errorMessage != nil { return "更新失败" }
-        guard let lastUpdated else { return "正在更新" }
+        if errorMessage != nil { return L10n.text("update_failed") }
+        guard let lastUpdated else { return L10n.text("updating_now") }
         let minutes = max(0, Int(Date().timeIntervalSince(lastUpdated) / 60))
-        return minutes < 1 ? "刚刚更新" : "\(minutes)分钟前更新"
+        return minutes < 1
+            ? L10n.text("updated_just_now")
+            : L10n.format("updated_minutes_ago", minutes)
     }
 
     var resetCreditSubtitle: String {
         guard let resetCreditCount else {
-            return "当前账户未提供重置卡信息"
+            return L10n.text("cards_unavailable")
         }
         guard resetCreditCount > 0 else {
-            return "暂无可用重置卡"
+            return L10n.text("cards_none")
         }
         if let expiration = resetCredits.compactMap(\.expiresAt).min() {
             let text = expiration.formatted(
                 .dateTime
-                    .locale(Locale(identifier: "zh_CN"))
+                    .locale(L10n.locale)
                     .month(.defaultDigits)
                     .day(.defaultDigits)
                     .hour(.twoDigits(amPM: .omitted))
                     .minute(.twoDigits)
             )
-            return "\(text) 最早过期"
+            return L10n.format("card_earliest_expiry", text)
         }
-        return "\(resetCreditCount) 张可用"
+        return L10n.format("cards_available", resetCreditCount)
     }
 
     var resetCreditEmptyTitle: String {
-        resetCreditCount == nil ? "无重置卡信息" : "暂无可用重置卡"
+        resetCreditCount == nil ? L10n.text("cards_no_info") : L10n.text("cards_none")
     }
 
     func expirationText(for credit: ResetCredit) -> String {
-        guard let expiresAt = credit.expiresAt else { return "无过期时间" }
-        return expiresAt.formatted(
+        guard let expiresAt = credit.expiresAt else { return L10n.text("card_no_expiry") }
+        let text = expiresAt.formatted(
             .dateTime
-                .locale(Locale(identifier: "zh_CN"))
+                .locale(L10n.locale)
                 .year()
                 .month(.defaultDigits)
                 .day(.defaultDigits)
                 .hour(.twoDigits(amPM: .omitted))
                 .minute(.twoDigits)
-        ) + " 过期"
+        )
+        return L10n.format("card_expires", text)
     }
 
     var hourlyUsageBars: [Double] {

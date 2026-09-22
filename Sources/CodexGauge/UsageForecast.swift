@@ -53,11 +53,15 @@ enum DurationText {
         let minutes = totalMinutes % 60
 
         if days > 0 {
-            return hours > 0 ? "\(days)天\(hours)小时" : "\(days)天"
+            return hours > 0
+                ? L10n.format("duration_days_hours", days, hours)
+                : L10n.format("duration_days", days)
         }
         if hours > 0 {
-            return minutes > 0 ? "\(hours)小时\(minutes)分钟" : "\(hours)小时"
+            return minutes > 0
+                ? L10n.format("duration_hours_minutes", hours, minutes)
+                : L10n.format("duration_hours", hours)
         }
-        return "\(minutes)分钟"
+        return L10n.format("duration_minutes", minutes)
     }
 }

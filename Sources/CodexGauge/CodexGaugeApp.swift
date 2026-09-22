@@ -73,9 +73,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.image = makeUsageRingIcon(remaining: remaining, remainingTime: remainingTime)
         button.title = usage.menuTitle
         if let remaining, let remainingTime {
-            button.toolTip = "外圈：剩余用量 \(remaining)%  ·  扇形：剩余时间 \(remainingTime)%  ·  \(usage.resetText)重置"
+            button.toolTip = L10n.format(
+                "tooltip_details",
+                remaining,
+                remainingTime,
+                usage.resetText
+            )
         } else {
-            button.toolTip = "Codex 用量"
+            button.toolTip = L10n.text("tooltip_usage")
         }
     }
 
@@ -111,9 +116,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         image.unlockFocus()
         image.isTemplate = true
         if let remaining, let remainingTime {
-            image.accessibilityDescription = "剩余用量 \(remaining)%，剩余时间 \(remainingTime)%"
+            image.accessibilityDescription = L10n.format(
+                "accessibility_details",
+                remaining,
+                remainingTime
+            )
         } else {
-            image.accessibilityDescription = "Codex 用量比例"
+            image.accessibilityDescription = L10n.text("accessibility_gauge")
         }
         return image
     }
@@ -238,7 +247,7 @@ private struct GaugePopover: View {
                         .padding(.vertical, 3)
                         .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
                 }
-                Text("专注创作，少些顾虑。")
+                Text(L10n.text("tagline"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -255,14 +264,14 @@ private struct GaugePopover: View {
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .buttonStyle(.plain)
-                .help("返回用量")
+                .help(L10n.text("back_to_usage"))
             }
 
             Menu {
-                Button("刷新") {
+                Button(L10n.text("refresh")) {
                     usage.refresh()
                 }
-                Button("退出 Codex Gauge") {
+                Button(L10n.text("quit_app")) {
                     NSApplication.shared.terminate(nil)
                 }
             } label: {
@@ -283,9 +292,9 @@ private struct GaugePopover: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 5) {
-                    Text("未来可用")
+                    Text(L10n.text("future_available"))
                         .font(.system(size: 12, weight: .semibold))
-                    Text("（按周额度平均）")
+                    Text(L10n.text("weekly_average"))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
@@ -313,16 +322,16 @@ private struct GaugePopover: View {
         if usage.usesDualQuotaLayout {
             HStack(spacing: 8) {
                 QuotaCard(
-                    title: "5小时额度",
+                    title: L10n.text("quota_5_hour"),
                     remainingPercent: usage.shortRemainingPercent,
                     resetText: usage.shortResetText,
                     exactText: usage.shortResetExactText,
                     tint: .blue
                 )
                 QuotaCard(
-                    title: "周额度",
+                    title: L10n.text("quota_weekly"),
                     remainingPercent: usage.remainingPercent,
-                    resetText: "\(usage.resetText)重置",
+                    resetText: L10n.format("reset_suffix", usage.resetText),
                     exactText: usage.resetExactText,
                     tint: .purple
                 )
@@ -331,9 +340,11 @@ private struct GaugePopover: View {
             .padding(.vertical, 10)
         } else {
             QuotaCard(
-                title: usage.windowDurationMinutes == 10_080 ? "周额度" : "当前额度",
+                title: usage.windowDurationMinutes == 10_080
+                    ? L10n.text("quota_weekly")
+                    : L10n.text("quota_current"),
                 remainingPercent: usage.remainingPercent,
-                resetText: "\(usage.resetText)重置",
+                resetText: L10n.format("reset_suffix", usage.resetText),
                 exactText: usage.resetExactText,
                 tint: accentColor,
                 expanded: true
@@ -370,7 +381,7 @@ private struct GaugePopover: View {
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("重置卡")
+                    Text(L10n.text("reset_cards"))
                         .font(.system(size: 14, weight: .semibold))
                     Text(usage.resetCreditSubtitle)
                         .font(.system(size: 11, weight: .medium))
@@ -402,7 +413,7 @@ private struct GaugePopover: View {
             .buttonStyle(.plain)
 
             Spacer()
-            Text("Focus on what matters.")
+            Text(L10n.text("tagline"))
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
@@ -413,10 +424,10 @@ private struct GaugePopover: View {
     private var resetCardsDetail: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("重置卡")
+                Text(L10n.text("reset_cards"))
                     .font(.system(size: 22, weight: .bold))
                 Spacer()
-                Text(usage.resetCreditCount.map { "\($0) 张可用" } ?? "暂无数据")
+                Text(usage.resetCreditCount.map { L10n.format("available_count", $0) } ?? L10n.text("no_data"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -441,7 +452,7 @@ private struct GaugePopover: View {
                                 .foregroundStyle(accentColor)
                                 .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(credit.title ?? "Codex 重置卡")
+                                Text(credit.title ?? L10n.text("default_card_title"))
                                     .font(.system(size: 13, weight: .semibold))
                                 Text(usage.expirationText(for: credit))
                                     .font(.system(size: 11))
@@ -463,7 +474,7 @@ private struct GaugePopover: View {
             Spacer(minLength: 0)
 
             HStack {
-                Text("开启面板时会同步最新数量")
+                Text(L10n.text("sync_cards_on_open"))
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -529,7 +540,7 @@ private struct DailyBudgetChart: View {
         if budgets.isEmpty {
             HStack {
                 Spacer()
-                Text("正在计算每日额度")
+                Text(L10n.text("calculating_daily"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -580,15 +591,15 @@ private struct DailyBudgetBar: View {
     }
 
     private var dayText: String {
-        if budget.isToday { return "今天" }
+        if budget.isToday { return L10n.text("today") }
         return budget.date.formatted(
-            .dateTime.locale(Locale(identifier: "zh_CN")).weekday(.abbreviated)
+            .dateTime.locale(L10n.locale).weekday(.abbreviated)
         )
     }
 
     private var dateText: String {
         budget.date.formatted(
-            .dateTime.locale(Locale(identifier: "zh_CN")).month(.defaultDigits).day(.defaultDigits)
+            .dateTime.locale(L10n.locale).month(.defaultDigits).day(.defaultDigits)
         )
     }
 }
