@@ -34,7 +34,7 @@ Codex Gauge 是一个极简的 macOS 菜单栏用量监控器。它直接读取�
 
 ## 安装已发布版
 
-从 [GitHub Releases](https://github.com/nb851224/codex-gauge/releases) 下载最新的 `Codex-Gauge-macOS.zip`，解压后打开 `Codex Gauge.app`。
+从 [GitHub Releases](https://github.com/nb851224/codex-gauge/releases) 下载最新的 `Codex-Gauge-v0.2.4-macOS-arm64.zip`，解压后打开 `Codex Gauge.app`。当前预编译包适用于 Apple Silicon Mac；Intel Mac 可从源码自行构建。
 
 当前发布包使用本地签名，未经 Apple 公证。如 macOS 首次拦截，请在 Finder 中右键应用并选择“打开”，或从源码自行构建。
 
