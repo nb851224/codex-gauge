@@ -142,10 +142,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func drawCenteredPercentage(_ percent: Int?, in size: NSSize) {
         let text = percent.map(String.init) ?? "--"
+        let fontSize: CGFloat = text.count <= 2 ? 7.5 : 5.9
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 6.3, weight: .bold),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .bold),
             .foregroundColor: NSColor.black,
             .paragraphStyle: paragraph,
         ]
