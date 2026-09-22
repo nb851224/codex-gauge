@@ -12,6 +12,8 @@
 
 反馈入口：https://github.com/nb851224/codex-gauge/issues/1
 
+当前发布版：https://github.com/nb851224/codex-gauge/releases/tag/v0.2.5
+
 ## Reddit：r/codex
 
 **标题**
@@ -22,7 +24,7 @@ I kept getting surprised by Codex limits, so I built a local macOS menu-bar gaug
 
 I use Codex throughout the day and wanted one quiet place to see what matters before a limit interrupts the flow: remaining usage and time until reset.
 
-So I built Codex Gauge, an open-source macOS menu-bar utility. It reads the local Codex App Server, makes no model calls, uses no API key, and has no telemetry. Plus accounts get separate 5-hour and weekly views; Pro / Prolite get the simpler view their account data supports. Clicking the menu-bar percentage refreshes it immediately.
+So I built Codex Gauge, an open-source macOS menu-bar utility. It reads the local Codex App Server, makes no model calls, uses no API key, and has no telemetry. Plus accounts get separate 5-hour and weekly views; Pro / Prolite get the simpler view their account data supports. Clicking the menu-bar percentage refreshes it immediately. Version 0.2.5 now follows the macOS system language in English or Simplified Chinese.
 
 I’m looking for early feedback rather than stars:
 
@@ -40,7 +42,7 @@ Unofficial community project, not affiliated with OpenAI.
 
 I built **Codex Gauge**, a small open-source macOS menu-bar utility for people who use Codex heavily and want to see their remaining 5-hour / weekly quota before it interrupts a coding session.
 
-It reads the local Codex App Server, makes no model calls, needs no API key, and collects no telemetry. The interface adapts automatically for Plus versus Pro / Prolite accounts.
+It reads the local Codex App Server, makes no model calls, needs no API key, and collects no telemetry. The interface adapts automatically for Plus versus Pro / Prolite accounts, and version 0.2.5 supports English and Simplified Chinese.
 
 I’d especially value feedback on whether the two-layer menu-bar gauge is understandable and whether notarization or Homebrew is essential for installation.
 
@@ -64,6 +66,7 @@ https://github.com/nb851224/codex-gauge
 - 点击菜单栏数字时立即刷新，平时安静运行
 - 本地读取 Codex App Server，不需要 API Key，不调用模型，不收集遥测
 - 不做预警、不发通知，避免把一个查看工具做得太吵
+- 支持简体中文和英文，自动跟随 macOS 系统语言
 
 这是非官方开源项目，目前发布包支持 Apple Silicon，尚未做 Apple 公证。希望找真实用户帮忙验证三件事：套餐识别是否准确、圆环是否一眼能看懂、安装上最需要先补 Homebrew、公证还是 Intel 支持。
 
@@ -81,7 +84,7 @@ See your Codex limits before they interrupt your flow.
 
 **Short description**
 
-Codex Gauge is a quiet, open-source macOS menu-bar utility that shows remaining Codex usage and time to reset. It adapts to Plus and Pro accounts, refreshes on click, makes no model calls, and collects no telemetry.
+Codex Gauge is a quiet, open-source macOS menu-bar utility that shows remaining Codex usage and time to reset. It adapts to Plus and Pro accounts, follows macOS in English or Simplified Chinese, refreshes on click, makes no model calls, and collects no telemetry.
 
 ## 7 天验证记录
 

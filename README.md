@@ -1,62 +1,73 @@
 # Codex Gauge
 
-Codex Gauge 是一个极简的 macOS 菜单栏用量监控器。它直接读取本机 Codex App Server 的账户额度，不会发起模型对话。本项目为社区开源工具，并非 OpenAI 官方产品。
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-当前版本：`0.2.5`
+A quiet, open-source macOS menu-bar gauge that shows your remaining Codex usage before it interrupts your flow. It reads account limits from the local Codex App Server and never starts a model conversation.
 
-![Codex Gauge：在工作被额度打断之前，看清剩余用量](Media/campaign/codex-gauge-hero-en.png)
+一个安静、开源的 macOS 菜单栏工具，在工作被额度打断之前显示 Codex 剩余用量。它从本机 Codex App Server 读取账户额度，不会发起模型对话。
 
-## 界面
+Current version: `0.2.5` · Unofficial community project, not affiliated with OpenAI.
 
-菜单栏常态显示比例图标和剩余百分比：外圈进度线表示剩余用量，内侧半透明扇形表示当前额度周期的剩余时间，两者均从十二点钟方向开始。点开后显示：
+![Codex Gauge shows remaining Codex limits before they interrupt your flow](Media/campaign/codex-gauge-hero-en.png)
 
-- 剩余用量
-- 距离下次重置的时间
-- 自动识别套餐，无需手动切换
-- Plus 同时显示 5 小时额度和周额度
-- Pro / Prolite 显示精简的主额度界面
-- 按剩余时间分配的每日额度
-- 账户的可用重置卡数量、最早过期时间和卡片明细
-- 简体中文与英文界面，自动跟随 macOS 系统语言
+## What it shows
 
-应用不做用量预警，不申请系统通知权限。
-重置卡页面只展示信息，不会自动使用卡片。
+The menu bar keeps the essential information visible: the outer ring shows remaining usage, while the translucent inner sector shows remaining time in the current quota cycle. Both start at 12 o'clock.
 
-![Plus 与 Pro 会显示各自需要的额度信息](Media/campaign/codex-gauge-plus-pro.png)
+Open the panel to see:
 
-## 构建和运行
+- Remaining usage and time until reset
+- Automatic plan detection with no manual switch
+- Separate 5-hour and weekly quotas for Plus
+- A focused primary-quota view for Pro / Prolite
+- Daily allowance distributed across the remaining cycle
+- Available reset cards and their earliest expiration
+- English and Simplified Chinese, following the macOS system language
 
-需要 macOS 13 或更高版本、Swift 5.10+，以及已登录的 Codex CLI。
+Codex Gauge does not send usage alerts or request notification permission. Reset cards are displayed only and are never consumed automatically.
 
-    cd codex-gauge
-    chmod +x Scripts/build-app.sh
-    Scripts/build-app.sh
-    open "dist/Codex Gauge.app"
+![Codex Gauge adapts its quota view for Plus and Pro](Media/campaign/codex-gauge-plus-pro.png)
 
-也可在开发时直接运行：
+## Install the release
 
-    swift run CodexGauge
+Download `Codex-Gauge-v0.2.5-macOS-arm64.zip` from [GitHub Releases](https://github.com/nb851224/codex-gauge/releases), unzip it, and open `Codex Gauge.app`.
 
-## 安装已发布版
+The current prebuilt release supports Apple Silicon and requires macOS 13 or later. Intel users can build from source.
 
-从 [GitHub Releases](https://github.com/nb851224/codex-gauge/releases) 下载最新的 `Codex-Gauge-v0.2.5-macOS-arm64.zip`，解压后打开 `Codex Gauge.app`。当前预编译包适用于 Apple Silicon Mac；Intel Mac 可从源码自行构建。
+The app is locally signed but not Apple-notarized. If macOS blocks the first launch, right-click the app in Finder and choose **Open**, or build it from source.
 
-当前发布包使用本地签名，未经 Apple 公证。如 macOS 首次拦截，请在 Finder 中右键应用并选择“打开”，或从源码自行构建。
+## Build from source
 
-## 隐私和用量
+Requirements: macOS 13 or later, Swift 5.10+, and a signed-in Codex CLI.
 
-- 数据来自本机 codex app-server --stdio。
-- 不调用模型，不会为刷新额外生成 Codex 推理用量。
-- 用量样本只保存在本机 UserDefaults，最长保留 30 天。
-- 收到 App Server 用量更新时立即刷新，另每 5 分钟兜底刷新。
-- 每次点击菜单栏百分比打开面板时，也会立即查询一次最新用量。
+```bash
+cd codex-gauge
+chmod +x Scripts/build-app.sh
+Scripts/build-app.sh
+open "dist/Codex Gauge.app"
+```
 
-![本地读取，不需要 API Key，不调用模型，不收集遥测](Media/campaign/codex-gauge-local-privacy.png)
+For development:
 
-## 参与早期验证
+```bash
+swift run CodexGauge
+```
 
-如果你正在使用 Codex Plus、Pro 或 Prolite，欢迎在 [早期反馈帖](https://github.com/nb851224/codex-gauge/issues/1) 留下实际体验。我们当前最想确认：套餐与额度是否识别正确、菜单栏图标是否一眼可读，以及你是否需要 Intel、Homebrew 或 Apple 公证版本。
+## Privacy and quota usage
 
-## 许可证
+- Reads data from the local `codex app-server --stdio` process.
+- Makes no model calls, so refreshing does not generate additional Codex inference usage.
+- Stores usage samples only in local `UserDefaults` for up to 30 days.
+- Refreshes when the App Server reports an update, with a five-minute fallback refresh.
+- Refreshes immediately whenever the menu-bar percentage is clicked.
+- Uses no API key and collects no telemetry.
+
+![Codex Gauge runs locally without API keys, model calls, or telemetry](Media/campaign/codex-gauge-local-privacy.png)
+
+## Early feedback
+
+If you use Codex Plus, Pro, or Prolite, please share your experience in the [early-feedback thread](https://github.com/nb851224/codex-gauge/issues/1). We especially want to know whether your plan and quota are detected correctly, whether the two-layer menu-bar gauge is clear at a glance, and whether you need Intel, Homebrew, or an Apple-notarized build.
+
+## License
 
 [MIT License](LICENSE)
