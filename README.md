@@ -54,7 +54,7 @@ Codex Gauge 是一个极简的 macOS 菜单栏用量监控器。它直接读取�
 
 ## 参与早期验证
 
-如果你正在使用 Codex Plus、Pro 或 Prolite，欢迎在 [GitHub Issues](https://github.com/nb851224/codex-gauge/issues) 留下实际体验。我们当前最想确认：套餐与额度是否识别正确、菜单栏图标是否一眼可读，以及你是否需要 Intel、Homebrew 或 Apple 公证版本。
+如果你正在使用 Codex Plus、Pro 或 Prolite，欢迎在 [早期反馈帖](https://github.com/nb851224/codex-gauge/issues/1) 留下实际体验。我们当前最想确认：套餐与额度是否识别正确、菜单栏图标是否一眼可读，以及你是否需要 Intel、Homebrew 或 Apple 公证版本。
 
 ## 许可证
 

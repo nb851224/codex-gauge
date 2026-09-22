@@ -10,7 +10,7 @@
 
 统一落点：https://github.com/nb851224/codex-gauge
 
-反馈入口：https://github.com/nb851224/codex-gauge/issues
+反馈入口：https://github.com/nb851224/codex-gauge/issues/1
 
 ## Reddit：r/codex
 
