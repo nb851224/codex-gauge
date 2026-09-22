@@ -5,6 +5,8 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var remainingPercent: Int?
     @Published private(set) var resetDate: Date?
     @Published private(set) var windowDurationMinutes: Int?
+    @Published private(set) var shortWindow: UsageLimitWindow?
+    @Published private(set) var planType: String?
     @Published private(set) var resetCreditCount: Int?
     @Published private(set) var resetCredits: [ResetCredit] = []
     @Published private(set) var errorMessage: String?
@@ -20,6 +22,46 @@ final class UsageViewModel: ObservableObject {
     var menuTitle: String {
         guard let remainingPercent else { return "--" }
         return "\(remainingPercent)%"
+    }
+
+    var planLabel: String {
+        switch planType {
+        case "plus":
+            return "PLUS"
+        case "pro", "prolite":
+            return "PRO"
+        case "team":
+            return "TEAM"
+        case "business", "self_serve_business_usage_based":
+            return "BUSINESS"
+        case "enterprise", "enterprise_cbp_usage_based":
+            return "ENTERPRISE"
+        case "edu":
+            return "EDU"
+        case "free":
+            return "FREE"
+        default:
+            return "CODEX"
+        }
+    }
+
+    var usesDualQuotaLayout: Bool {
+        planType == "plus" && shortWindow != nil
+    }
+
+    var shortRemainingPercent: Int? {
+        shortWindow.map { 100 - $0.usedPercent }
+    }
+
+    var shortResetText: String {
+        guard let shortWindow else { return "--" }
+        let remaining = shortWindow.resetsAt.timeIntervalSinceNow
+        return remaining <= 0 ? "即将重置" : "\(DurationText.compact(remaining))后重置"
+    }
+
+    var shortResetExactText: String {
+        guard let shortWindow else { return "--" }
+        return shortWindow.resetsAt.formatted(date: .omitted, time: .shortened)
     }
 
     var cycleRemainingPercent: Int? {
@@ -231,6 +273,8 @@ final class UsageViewModel: ObservableObject {
         remainingPercent = 100 - snapshot.usedPercent
         resetDate = snapshot.resetsAt
         windowDurationMinutes = snapshot.windowDurationMinutes
+        shortWindow = snapshot.shortWindow
+        planType = snapshot.planType
         resetCreditCount = snapshot.resetCredits?.availableCount
         resetCredits = snapshot.resetCredits?.credits ?? []
         lastUpdated = sample.collectedAt

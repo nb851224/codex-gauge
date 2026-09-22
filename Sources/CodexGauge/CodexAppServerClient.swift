@@ -1,11 +1,33 @@
 import Foundation
 import OSLog
 
-struct RateLimitSnapshot {
+struct UsageLimitWindow: Equatable, Identifiable {
     let usedPercent: Int
     let resetsAt: Date
-    let windowDurationMinutes: Int?
+    let durationMinutes: Int
+
+    var id: String {
+        "\(durationMinutes)-\(Int(resetsAt.timeIntervalSince1970))"
+    }
+}
+
+struct RateLimitSnapshot {
+    let windows: [UsageLimitWindow]
+    let planType: String?
     let resetCredits: ResetCreditsSummary?
+
+    var mainWindow: UsageLimitWindow {
+        windows.max(by: { $0.durationMinutes < $1.durationMinutes })!
+    }
+
+    var shortWindow: UsageLimitWindow? {
+        guard windows.count > 1 else { return nil }
+        return windows.min(by: { $0.durationMinutes < $1.durationMinutes })
+    }
+
+    var usedPercent: Int { mainWindow.usedPercent }
+    var resetsAt: Date { mainWindow.resetsAt }
+    var windowDurationMinutes: Int { mainWindow.durationMinutes }
 }
 
 struct ResetCredit: Identifiable, Equatable {
@@ -108,7 +130,7 @@ final class CodexAppServerClient {
         sendRequest(
             method: "initialize",
             params: [
-                "clientInfo": ["name": "codex-gauge", "version": "0.1.0"],
+                "clientInfo": ["name": "codex-gauge", "version": "0.2.0"],
                 "capabilities": ["experimentalApi": true]
             ]
         ) { [weak self] _ in
@@ -140,7 +162,7 @@ final class CodexAppServerClient {
                 return
             }
             self.logger.info(
-                "Received rate limits: used=\(snapshot.usedPercent, privacy: .public), window=\(snapshot.windowDurationMinutes ?? -1, privacy: .public)"
+                "Received rate limits: used=\(snapshot.usedPercent, privacy: .public), window=\(snapshot.windowDurationMinutes, privacy: .public), plan=\(snapshot.planType ?? "unknown", privacy: .public)"
             )
             DispatchQueue.main.async { [weak self] in
                 self?.onSnapshot?(snapshot)
@@ -161,20 +183,34 @@ final class CodexAppServerClient {
         }
 
         for bucket in candidates {
-            guard
-                let primary = bucket["primary"] as? [String: Any],
-                let used = number(primary["usedPercent"]),
-                let resetTimestamp = number(primary["resetsAt"])
-            else { continue }
+            let windows = ["primary", "secondary"].compactMap { key in
+                parseWindow(bucket[key])
+            }
+            guard !windows.isEmpty else { continue }
 
             return RateLimitSnapshot(
-                usedPercent: min(100, max(0, used)),
-                resetsAt: Date(timeIntervalSince1970: TimeInterval(resetTimestamp)),
-                windowDurationMinutes: number(primary["windowDurationMins"]),
+                windows: windows,
+                planType: bucket["planType"] as? String,
                 resetCredits: parseResetCredits(result["rateLimitResetCredits"])
             )
         }
         return nil
+    }
+
+    private static func parseWindow(_ value: Any?) -> UsageLimitWindow? {
+        guard
+            let object = value as? [String: Any],
+            let used = number(object["usedPercent"]),
+            let resetTimestamp = number(object["resetsAt"]),
+            let duration = number(object["windowDurationMins"]),
+            duration > 0
+        else { return nil }
+
+        return UsageLimitWindow(
+            usedPercent: min(100, max(0, used)),
+            resetsAt: Date(timeIntervalSince1970: TimeInterval(resetTimestamp)),
+            durationMinutes: duration
+        )
     }
 
     private static func number(_ value: Any?) -> Int? {

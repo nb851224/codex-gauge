@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         popover.behavior = .transient
         popover.animates = false
-        popover.contentSize = NSSize(width: 354, height: 410)
+        popover.contentSize = NSSize(width: 374, height: 430)
         popover.contentViewController = NSHostingController(rootView: GaugePopover(usage: usage))
 
         observation = usage.objectWillChange.sink { [weak self] _ in
@@ -174,7 +174,7 @@ private struct GaugePopover: View {
                     .transition(.opacity)
             }
         }
-        .frame(width: 354, height: 410)
+        .frame(width: 374, height: 430)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             usage.refresh()
@@ -188,8 +188,16 @@ private struct GaugePopover: View {
                 .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Codex")
-                    .font(.system(size: 19, weight: .bold))
+                HStack(spacing: 7) {
+                    Text("Codex")
+                        .font(.system(size: 19, weight: .bold))
+                    Text(usage.planLabel)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+                }
                 Text("专注创作，少些顾虑。")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -231,54 +239,68 @@ private struct GaugePopover: View {
 
     private var overview: some View {
         VStack(spacing: 0) {
-            usageSummary
+            quotaSummary
 
-            DailyBudgetChart(budgets: usage.dailyBudgets, accentColor: accentColor)
-                .frame(height: 104)
-                .padding(.horizontal, 13)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 5) {
+                    Text("未来可用")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("（按周额度平均）")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                DailyBudgetChart(budgets: usage.dailyBudgets, accentColor: accentColor)
+                    .frame(height: 91)
+            }
+            .padding(.horizontal, 13)
+            .padding(.top, 9)
+            .padding(.bottom, 7)
 
             Divider()
 
             resetCardRow
+
+            Divider()
+
+            refreshFooter
         }
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    private var usageSummary: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 15) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(usage.remainingPercent.map { "\($0)%" } ?? "--")
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                    Text("本周期剩余")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-
-                Rectangle()
-                    .fill(Color(nsColor: .separatorColor))
-                    .frame(width: 1, height: 49)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(usage.resetText)重置")
-                        .font(.system(size: 17, weight: .semibold))
-                        .lineLimit(1)
-                    Text(usage.resetExactText)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+    @ViewBuilder
+    private var quotaSummary: some View {
+        if usage.usesDualQuotaLayout {
+            HStack(spacing: 8) {
+                QuotaCard(
+                    title: "5小时额度",
+                    remainingPercent: usage.shortRemainingPercent,
+                    resetText: usage.shortResetText,
+                    exactText: usage.shortResetExactText,
+                    tint: .blue
+                )
+                QuotaCard(
+                    title: "周额度",
+                    remainingPercent: usage.remainingPercent,
+                    resetText: "\(usage.resetText)重置",
+                    exactText: usage.resetExactText,
+                    tint: .purple
+                )
             }
-
-            ProgressView(value: Double(usage.remainingPercent ?? 0), total: 100)
-                .progressViewStyle(.linear)
-                .tint(accentColor)
-                .scaleEffect(x: 1, y: 1.8, anchor: .center)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        } else {
+            QuotaCard(
+                title: usage.windowDurationMinutes == 10_080 ? "周额度" : "当前额度",
+                remainingPercent: usage.remainingPercent,
+                resetText: "\(usage.resetText)重置",
+                exactText: usage.resetExactText,
+                tint: accentColor,
+                expanded: true
+            )
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 17)
-        .padding(.top, 13)
-        .padding(.bottom, 12)
     }
 
     private var resetCardRow: some View {
@@ -326,6 +348,26 @@ private struct GaugePopover: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 17)
         .frame(maxHeight: .infinity)
+    }
+
+    private var refreshFooter: some View {
+        HStack {
+            Button {
+                usage.refresh()
+            } label: {
+                Label(usage.relativeUpdateText, systemImage: "arrow.clockwise")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+            Text("Focus on what matters.")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 17)
+        .frame(height: 34)
     }
 
     private var resetCardsDetail: some View {
@@ -396,6 +438,46 @@ private struct GaugePopover: View {
         }
         .padding(17)
         .frame(maxHeight: .infinity)
+    }
+}
+
+private struct QuotaCard: View {
+    let title: String
+    let remainingPercent: Int?
+    let resetText: String
+    let exactText: String
+    let tint: Color
+    var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+
+            HStack(alignment: .firstTextBaseline, spacing: expanded ? 18 : 8) {
+                Text(remainingPercent.map { "\($0)%" } ?? "--")
+                    .font(.system(size: expanded ? 41 : 32, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(resetText)
+                        .font(.system(size: expanded ? 13 : 10, weight: .semibold))
+                        .lineLimit(1)
+                    Text(exactText)
+                        .font(.system(size: expanded ? 11 : 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            ProgressView(value: Double(remainingPercent ?? 0), total: 100)
+                .progressViewStyle(.linear)
+                .tint(tint)
+                .scaleEffect(x: 1, y: 1.5, anchor: .center)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 105, alignment: .leading)
+        .background(Color.secondary.opacity(0.065), in: RoundedRectangle(cornerRadius: 11))
     }
 }
 

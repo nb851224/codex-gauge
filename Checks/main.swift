@@ -4,6 +4,7 @@ private func checkResponseParsing() {
     let response: [String: Any] = [
         "rateLimitsByLimitId": [
             "codex": [
+                "planType": "prolite",
                 "primary": [
                     "usedPercent": 16,
                     "windowDurationMins": 10_080,
@@ -28,6 +29,8 @@ private func checkResponseParsing() {
     let snapshot = CodexAppServerClient.parseSnapshot(response)
     precondition(snapshot?.usedPercent == 16)
     precondition(snapshot?.windowDurationMinutes == 10_080)
+    precondition(snapshot?.planType == "prolite")
+    precondition(snapshot?.windows.count == 1)
     precondition(snapshot?.resetsAt.timeIntervalSince1970 == 1_790_412_303)
     precondition(snapshot?.resetCredits?.availableCount == 1)
     precondition(snapshot?.resetCredits?.credits.first?.id == "credit-1")
@@ -43,6 +46,28 @@ private func checkResponseParsing() {
         ]
     ]
     precondition(CodexAppServerClient.parseSnapshot(fallbackResponse)?.usedPercent == 24)
+
+    let plusResponse: [String: Any] = [
+        "rateLimitsByLimitId": [
+            "codex": [
+                "planType": "plus",
+                "primary": [
+                    "usedPercent": 40,
+                    "windowDurationMins": 300,
+                    "resetsAt": NSNumber(value: 1_790_100_000)
+                ],
+                "secondary": [
+                    "usedPercent": 20,
+                    "windowDurationMins": 10_080,
+                    "resetsAt": NSNumber(value: 1_790_412_303)
+                ]
+            ]
+        ]
+    ]
+    let plusSnapshot = CodexAppServerClient.parseSnapshot(plusResponse)
+    precondition(plusSnapshot?.planType == "plus")
+    precondition(plusSnapshot?.mainWindow.usedPercent == 20)
+    precondition(plusSnapshot?.shortWindow?.usedPercent == 40)
 }
 
 private func checkDailyBudgetAllocation() {
