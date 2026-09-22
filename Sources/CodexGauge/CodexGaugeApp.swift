@@ -85,13 +85,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         image.lockFocus()
 
         let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        drawOpenRing(center: center, radius: 7.1, lineWidth: 2.15, percent: remaining)
-        drawOpenRing(
-            center: center,
-            radius: 4.15,
-            lineWidth: 1.3,
-            percent: remainingTime
-        )
+        let radius: CGFloat = 6.5
+        let startAngle: CGFloat = 220
+        let sweep: CGFloat = 280
+
+        if remaining == nil && remainingTime == nil {
+            drawMetricArc(
+                center: center,
+                radius: radius,
+                lineWidth: 3.8,
+                percent: 100,
+                alpha: 0.18,
+                startAngle: startAngle,
+                sweep: sweep
+            )
+        } else {
+            // Both metrics share the exact same path and starting point.
+            drawMetricArc(
+                center: center,
+                radius: radius,
+                lineWidth: 3.8,
+                percent: remainingTime,
+                alpha: 0.32,
+                startAngle: startAngle,
+                sweep: sweep
+            )
+            drawMetricArc(
+                center: center,
+                radius: radius,
+                lineWidth: 1.8,
+                percent: remaining,
+                alpha: 1,
+                startAngle: startAngle,
+                sweep: sweep
+            )
+        }
 
         if remaining == nil || remainingTime == nil {
             let dot = NSBezierPath(ovalIn: NSRect(x: 7.8, y: 7.8, width: 2.4, height: 2.4))
@@ -109,41 +137,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    private func drawOpenRing(
+    private func drawMetricArc(
         center: NSPoint,
         radius: CGFloat,
         lineWidth: CGFloat,
-        percent: Int?
+        percent: Int?,
+        alpha: CGFloat,
+        startAngle: CGFloat,
+        sweep: CGFloat
     ) {
-        // A visible left-side opening keeps the two rings legible at menu-bar size.
-        let startAngle: CGFloat = 220
-        let sweep: CGFloat = 280
-
-        let track = NSBezierPath()
-        track.appendArc(
-            withCenter: center,
-            radius: radius,
-            startAngle: startAngle,
-            endAngle: startAngle + sweep
-        )
-        track.lineWidth = lineWidth
-        track.lineCapStyle = .round
-        NSColor.black.withAlphaComponent(0.22).setStroke()
-        track.stroke()
-
         guard let percent else { return }
         let fraction = CGFloat(min(100, max(0, percent))) / 100
-        let progress = NSBezierPath()
-        progress.appendArc(
+        let arc = NSBezierPath()
+        arc.appendArc(
             withCenter: center,
             radius: radius,
             startAngle: startAngle,
             endAngle: startAngle + sweep * fraction
         )
-        progress.lineWidth = lineWidth
-        progress.lineCapStyle = .round
-        NSColor.black.setStroke()
-        progress.stroke()
+        arc.lineWidth = lineWidth
+        arc.lineCapStyle = .round
+        NSColor.black.withAlphaComponent(alpha).setStroke()
+        arc.stroke()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
