@@ -30,6 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         button.imagePosition = .imageLeading
+        button.imageScaling = .scaleNone
+        button.font = .systemFont(ofSize: 13, weight: .medium)
         button.target = self
         button.action = #selector(togglePopover(_:))
         button.sendAction(on: [.leftMouseUp])
@@ -78,21 +80,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func makeUsageRingIcon(remaining: Int?, remainingTime: Int?) -> NSImage {
-        let size = NSSize(width: 16, height: 16)
+        let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size)
         image.lockFocus()
 
         let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        drawOpenRing(center: center, radius: 6.2, lineWidth: 1.7, percent: remaining)
+        drawOpenRing(center: center, radius: 7.1, lineWidth: 2.15, percent: remaining)
         drawOpenRing(
             center: center,
-            radius: 3.8,
-            lineWidth: 1.35,
+            radius: 4.15,
+            lineWidth: 1.3,
             percent: remainingTime
         )
 
         if remaining == nil || remainingTime == nil {
-            let dot = NSBezierPath(ovalIn: NSRect(x: 7, y: 7, width: 2, height: 2))
+            let dot = NSBezierPath(ovalIn: NSRect(x: 7.8, y: 7.8, width: 2.4, height: 2.4))
             NSColor.black.setFill()
             dot.fill()
         }
@@ -113,8 +115,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lineWidth: CGFloat,
         percent: Int?
     ) {
-        let startAngle: CGFloat = 210
-        let sweep: CGFloat = 300
+        // A visible left-side opening keeps the two rings legible at menu-bar size.
+        let startAngle: CGFloat = 220
+        let sweep: CGFloat = 280
 
         let track = NSBezierPath()
         track.appendArc(
@@ -125,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         track.lineWidth = lineWidth
         track.lineCapStyle = .round
-        NSColor.black.withAlphaComponent(0.18).setStroke()
+        NSColor.black.withAlphaComponent(0.22).setStroke()
         track.stroke()
 
         guard let percent else { return }
