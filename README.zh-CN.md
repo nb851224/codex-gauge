@@ -4,13 +4,13 @@
 
 Codex Gauge 是一个安静、开源的 macOS 菜单栏用量监控器。它直接读取本机 Codex App Server 的账户额度，不会发起模型对话，让你在工作被额度打断之前看清剩余用量。
 
-当前版本：`0.2.5` · 本项目为社区开源工具，并非 OpenAI 官方产品。
+当前版本：`0.2.6` · 本项目为社区开源工具，并非 OpenAI 官方产品。
 
 ![Codex Gauge：在工作被额度打断之前，看清剩余用量](Media/campaign/codex-gauge-hero-en.png)
 
 ## 界面
 
-菜单栏常态显示比例图标和剩余百分比：外圈进度线表示剩余用量，内侧半透明扇形表示当前额度周期的剩余时间，两者均从十二点钟方向开始。点开后显示：
+菜单栏使用紧凑的单图标：外圈进度线表示剩余用量，内侧半透明扇形表示当前额度周期的剩余时间，中心只显示用量整数，两项指标均从十二点钟方向开始。鼠标悬浮自动打开面板，离开图标和面板后自动收起。面板内显示：
 
 - 剩余用量与距离下次重置的时间
 - 自动识别套餐，无需手动切换
@@ -26,7 +26,7 @@ Codex Gauge 是一个安静、开源的 macOS 菜单栏用量监控器。它直�
 
 ## 安装已发布版
 
-从 [GitHub Releases](https://github.com/nb851224/codex-gauge/releases) 下载最新的 `Codex-Gauge-v0.2.5-macOS-arm64.zip`，解压后打开 `Codex Gauge.app`。
+从 [GitHub Releases](https://github.com/nb851224/codex-gauge/releases) 下载最新的 `Codex-Gauge-v0.2.6-macOS-arm64.zip`，解压后打开 `Codex Gauge.app`。
 
 当前预编译包适用于 Apple Silicon，需要 macOS 13 或更高版本；Intel Mac 可从源码自行构建。
 

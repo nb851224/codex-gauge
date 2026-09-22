@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var observation: AnyCancellable?
     private var outsideClickMonitor: Any?
     private var openedAt: Date?
+    private var hoverCloseTimer: Timer?
+    private var hoverExitDeadline: Date?
+    private static let statusItemAutosaveName = "CodexGauge.StatusItem"
 
     static func main() {
         let application = NSApplication.shared
@@ -23,13 +26,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        prepareStatusItemPosition()
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.autosaveName = Self.statusItemAutosaveName
         guard let button = item.button else {
             logger.error("Unable to create status bar button")
             return
         }
 
-        button.imagePosition = .imageLeading
+        button.imagePosition = .imageOnly
         button.imageScaling = .scaleNone
         button.font = .systemFont(ofSize: 13, weight: .medium)
         button.target = self
@@ -59,9 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                    Date().timeIntervalSince(openedAt) < 0.25 {
                     return
                 }
-                self?.popover.performClose(nil)
+                self?.closePopover()
             }
         }
+
+        startHoverCloseTimer()
 
         logger.info("Status item ready")
     }
@@ -71,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let remaining = usage.remainingPercent
         let remainingTime = usage.cycleRemainingPercent
         button.image = makeUsageRingIcon(remaining: remaining, remainingTime: remainingTime)
-        button.title = usage.menuTitle
+        button.title = ""
         if let remaining, let remainingTime {
             button.toolTip = L10n.format(
                 "tooltip_details",
@@ -84,8 +91,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func prepareStatusItemPosition() {
+        let defaults = UserDefaults.standard
+        let positionKey = "NSStatusItem Preferred Position \(Self.statusItemAutosaveName)"
+        guard defaults.object(forKey: positionKey) == nil else { return }
+
+        // Seed only this app's first position. AppKit owns subsequent changes,
+        // including positions chosen by Command-dragging the status item.
+        defaults.set(0, forKey: positionKey)
+    }
+
     private func makeUsageRingIcon(remaining: Int?, remainingTime: Int?) -> NSImage {
-        let size = NSSize(width: 18, height: 18)
+        let size = NSSize(width: 22, height: 18)
         let image = NSImage(size: size)
         image.lockFocus()
 
@@ -94,24 +111,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         drawTimeSector(
             center: center,
-            radius: 4.7,
+            radius: 5.7,
             percent: remainingTime,
             startAngle: startAngle
         )
-        drawUsageTrack(center: center, radius: 6.7, lineWidth: 1.9)
+        drawUsageTrack(center: center, radius: 7.6, lineWidth: 1.7)
         drawUsageArc(
             center: center,
-            radius: 6.7,
-            lineWidth: 1.9,
+            radius: 7.6,
+            lineWidth: 1.7,
             percent: remaining,
             startAngle: startAngle
         )
 
-        if remaining == nil || remainingTime == nil {
-            let dot = NSBezierPath(ovalIn: NSRect(x: 7.8, y: 7.8, width: 2.4, height: 2.4))
-            NSColor.black.setFill()
-            dot.fill()
-        }
+        drawCenteredPercentage(remaining, in: size)
 
         image.unlockFocus()
         image.isTemplate = true
@@ -125,6 +138,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             image.accessibilityDescription = L10n.text("accessibility_gauge")
         }
         return image
+    }
+
+    private func drawCenteredPercentage(_ percent: Int?, in size: NSSize) {
+        let text = percent.map(String.init) ?? "--"
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 6.3, weight: .bold),
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paragraph,
+        ]
+        let attributed = NSAttributedString(string: text, attributes: attributes)
+        let textSize = attributed.size()
+        attributed.draw(at: NSPoint(
+            x: (size.width - textSize.width) / 2,
+            y: (size.height - textSize.height) / 2 + 0.2
+        ))
     }
 
     private func drawTimeSector(
@@ -185,6 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        hoverCloseTimer?.invalidate()
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
         }
@@ -193,13 +224,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopover(_ sender: NSStatusBarButton) {
         logger.info("Status item clicked; shown=\(self.popover.isShown, privacy: .public)")
         if popover.isShown {
-            popover.performClose(sender)
-            openedAt = nil
+            closePopover(sender)
         } else {
-            usage.refresh()
-            openedAt = Date()
-            let anchor = sender.bounds.insetBy(dx: 2, dy: 0)
-            popover.show(relativeTo: anchor, of: sender, preferredEdge: .minY)
+            showPopover(relativeTo: sender)
+        }
+    }
+
+    private func showPopover(relativeTo button: NSStatusBarButton) {
+        usage.refresh()
+        openedAt = Date()
+        hoverExitDeadline = nil
+        let anchor = button.bounds.insetBy(dx: 2, dy: 0)
+        popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
+    }
+
+    private func closePopover(_ sender: Any? = nil) {
+        popover.performClose(sender)
+        openedAt = nil
+        hoverExitDeadline = nil
+    }
+
+    private func startHoverCloseTimer() {
+        hoverCloseTimer?.invalidate()
+        hoverCloseTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateHoverState()
+            }
+        }
+    }
+
+    private func handlePointerMovement() {
+        let pointer = NSEvent.mouseLocation
+        guard let button = statusItem?.button, let statusFrame = button.window?.frame else { return }
+
+        if statusFrame.insetBy(dx: -3, dy: -3).contains(pointer) {
+            hoverExitDeadline = nil
+            if !popover.isShown {
+                showPopover(relativeTo: button)
+            }
+        } else if popover.contentViewController?.view.window?.frame.insetBy(dx: -4, dy: -6).contains(pointer) == true {
+            hoverExitDeadline = nil
+        } else if popover.isShown, hoverExitDeadline == nil {
+            hoverExitDeadline = Date().addingTimeInterval(0.22)
+        }
+    }
+
+    private func updateHoverState() {
+        handlePointerMovement()
+        guard popover.isShown else { return }
+
+        let pointer = NSEvent.mouseLocation
+        let statusFrame = statusItem?.button?.window?.frame.insetBy(dx: -3, dy: -3)
+        let popoverFrame = popover.contentViewController?.view.window?.frame.insetBy(dx: -4, dy: -6)
+        if statusFrame?.contains(pointer) == true || popoverFrame?.contains(pointer) == true {
+            hoverExitDeadline = nil
+            return
+        }
+
+        if hoverExitDeadline == nil {
+            hoverExitDeadline = Date().addingTimeInterval(0.22)
+        } else if let deadline = hoverExitDeadline, Date() >= deadline {
+            closePopover()
         }
     }
 }
