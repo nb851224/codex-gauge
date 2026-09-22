@@ -83,16 +83,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         image.lockFocus()
 
         let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        drawRing(center: center, radius: 6.2, lineWidth: 1.5, percent: remaining)
-        drawRing(
+        drawOpenRing(center: center, radius: 6.2, lineWidth: 1.7, percent: remaining)
+        drawOpenRing(
             center: center,
             radius: 3.8,
-            lineWidth: 1.5,
+            lineWidth: 1.35,
             percent: remainingTime
         )
 
         if remaining == nil || remainingTime == nil {
-            let dot = NSBezierPath(ovalIn: NSRect(x: 6.5, y: 6.5, width: 3, height: 3))
+            let dot = NSBezierPath(ovalIn: NSRect(x: 7, y: 7, width: 2, height: 2))
             NSColor.black.setFill()
             dot.fill()
         }
@@ -107,16 +107,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    private func drawRing(
+    private func drawOpenRing(
         center: NSPoint,
         radius: CGFloat,
         lineWidth: CGFloat,
         percent: Int?
     ) {
+        let startAngle: CGFloat = 210
+        let sweep: CGFloat = 300
+
         let track = NSBezierPath()
-        track.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360)
+        track.appendArc(
+            withCenter: center,
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: startAngle + sweep
+        )
         track.lineWidth = lineWidth
-        NSColor.black.withAlphaComponent(0.2).setStroke()
+        track.lineCapStyle = .round
+        NSColor.black.withAlphaComponent(0.18).setStroke()
         track.stroke()
 
         guard let percent else { return }
@@ -125,9 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         progress.appendArc(
             withCenter: center,
             radius: radius,
-            startAngle: 90,
-            endAngle: 90 - 360 * fraction,
-            clockwise: true
+            startAngle: startAngle,
+            endAngle: startAngle + sweep * fraction
         )
         progress.lineWidth = lineWidth
         progress.lineCapStyle = .round
