@@ -59,20 +59,18 @@ final class CodexAppServerClient {
     private var generation = 0
     private var requestTimeouts: [Int: DispatchWorkItem] = [:]
 
-    private let executableURL: URL
+    private let executableURL: URL?
     private let arguments: [String]
     private let requestTimeout: TimeInterval
 
-    init(executableURL: URL = URL(fileURLWithPath: "/bin/zsh"),
-         arguments: [String] = ["-lc", """
-         if [[ -n ${CODEX_GAUGE_HTTP_PROXY:-} ]]; then
-             export HTTP_PROXY="$CODEX_GAUGE_HTTP_PROXY" http_proxy="$CODEX_GAUGE_HTTP_PROXY"
-         fi
-         if [[ -n ${CODEX_GAUGE_HTTPS_PROXY:-} ]]; then
-             export HTTPS_PROXY="$CODEX_GAUGE_HTTPS_PROXY" https_proxy="$CODEX_GAUGE_HTTPS_PROXY"
-         fi
-         exec codex app-server --stdio
-         """],
+    init(requestTimeout: TimeInterval = 30) {
+        self.executableURL = Self.locateCodexExecutable()
+        self.arguments = ["app-server", "--stdio"]
+        self.requestTimeout = requestTimeout
+    }
+
+    init(executableURL: URL,
+         arguments: [String],
          requestTimeout: TimeInterval = 30) {
         self.executableURL = executableURL
         self.arguments = arguments
@@ -119,6 +117,11 @@ final class CodexAppServerClient {
     private func launch() {
         disconnect()
         let connectionGeneration = generation
+        guard let executableURL else {
+            logger.error("Unable to locate a Codex executable")
+            reportError(L10n.text("client_launch_failed"))
+            return
+        }
         logger.info("Launching Codex app server")
         let process = Process()
         let input = Pipe()
@@ -168,6 +171,54 @@ final class CodexAppServerClient {
         }
     }
 
+    private static func locateCodexExecutable() -> URL? {
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser
+        var candidates: [URL] = []
+
+        if let override = ProcessInfo.processInfo.environment["CODEX_GAUGE_CODEX_PATH"],
+           !override.isEmpty {
+            candidates.append(URL(fileURLWithPath: override))
+        }
+
+        if let path = ProcessInfo.processInfo.environment["PATH"] {
+            candidates.append(contentsOf: path.split(separator: ":").map {
+                URL(fileURLWithPath: String($0)).appendingPathComponent("codex")
+            })
+        }
+
+        candidates.append(contentsOf: [
+            URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"),
+            home.appendingPathComponent("Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"),
+            URL(fileURLWithPath: "/Applications/Codex.app/Contents/Resources/codex"),
+            URL(fileURLWithPath: "/Applications/Codex.app/Contents/MacOS/codex"),
+            URL(fileURLWithPath: "/opt/homebrew/bin/codex"),
+            URL(fileURLWithPath: "/usr/local/bin/codex"),
+            home.appendingPathComponent(".npm-global/bin/codex"),
+            home.appendingPathComponent(".local/bin/codex"),
+        ])
+
+        let nvmRoot = home.appendingPathComponent(".nvm/versions/node")
+        if let versions = try? fileManager.contentsOfDirectory(
+            at: nvmRoot,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) {
+            candidates.append(contentsOf: versions
+                .sorted { $0.lastPathComponent.compare(
+                    $1.lastPathComponent,
+                    options: .numeric
+                ) == .orderedDescending }
+                .map { $0.appendingPathComponent("bin/codex") })
+        }
+
+        var seen = Set<String>()
+        return candidates.first { candidate in
+            let path = candidate.standardizedFileURL.path
+            return seen.insert(path).inserted && fileManager.isExecutableFile(atPath: path)
+        }
+    }
+
     // Login shell profiles can contain a retired proxy. Apply the active macOS
     // proxy after the profile has run, without changing the user's shell settings.
     private static func systemProxyEnvironment() -> [String: String] {
@@ -197,7 +248,7 @@ final class CodexAppServerClient {
         sendRequest(
             method: "initialize",
             params: [
-                "clientInfo": ["name": "codex-gauge", "version": "0.2.8"],
+                "clientInfo": ["name": "codex-gauge", "version": "0.2.9"],
                 "capabilities": ["experimentalApi": true]
             ]
         ) { [weak self] response in

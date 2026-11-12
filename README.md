@@ -6,7 +6,7 @@ A quiet, open-source macOS menu-bar gauge that shows your remaining Codex usage 
 
 一个安静、开源的 macOS 菜单栏工具，在工作被额度打断之前显示 Codex 剩余用量。它从本机 Codex App Server 读取账户额度，不会发起模型对话。
 
-Current version: `0.2.8` · Unofficial community project, not affiliated with OpenAI.
+Current version: `0.2.9` · Unofficial community project, not affiliated with OpenAI.
 
 ![Codex Gauge shows remaining Codex limits before they interrupt your flow](Media/campaign/codex-gauge-hero-en.png)
 

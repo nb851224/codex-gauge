@@ -275,12 +275,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             closePopover(sender)
         } else {
-            showPopover(relativeTo: sender)
+            showPopover(relativeTo: sender, forceRefresh: true)
         }
     }
 
-    private func showPopover(relativeTo button: NSStatusBarButton) {
-        usage.refreshIfNeeded()
+    private func showPopover(relativeTo button: NSStatusBarButton, forceRefresh: Bool = false) {
+        if forceRefresh {
+            usage.refresh()
+        } else {
+            usage.refreshIfNeeded()
+        }
         openedAt = Date()
         hoverExitDeadline = nil
         let anchor = button.bounds.insetBy(dx: 2, dy: 0)

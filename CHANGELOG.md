@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9 - 2026-11-12
+
+- Locate the bundled, system, or NVM Codex executable when launched from the desktop or at login, without relying on the inherited `PATH`.
+- Force a fresh usage query when the menu-bar gauge is clicked; hover-open continues to use the freshness check.
+
 ## 0.2.8 - 2026-11-12
 
 - Install and launch Codex Gauge as a standalone macOS app without opening Codex first.

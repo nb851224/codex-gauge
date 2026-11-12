@@ -4,7 +4,7 @@
 
 Codex Gauge 是一个安静、开源的 macOS 菜单栏用量监控器。它直接读取本机 Codex App Server 的账户额度，不会发起模型对话，让你在工作被额度打断之前看清剩余用量。
 
-当前版本：`0.2.8` · 本项目为社区开源工具，并非 OpenAI 官方产品。
+当前版本：`0.2.9` · 本项目为社区开源工具，并非 OpenAI 官方产品。
 
 ![Codex Gauge：在工作被额度打断之前，看清剩余用量](Media/campaign/codex-gauge-hero-en.png)
 
