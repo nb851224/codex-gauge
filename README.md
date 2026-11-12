@@ -6,7 +6,7 @@ A quiet, open-source macOS menu-bar gauge that shows your remaining Codex usage 
 
 一个安静、开源的 macOS 菜单栏工具，在工作被额度打断之前显示 Codex 剩余用量。它从本机 Codex App Server 读取账户额度，不会发起模型对话。
 
-Current version: `0.2.7` · Unofficial community project, not affiliated with OpenAI.
+Current version: `0.2.8` · Unofficial community project, not affiliated with OpenAI.
 
 ![Codex Gauge shows remaining Codex limits before they interrupt your flow](Media/campaign/codex-gauge-hero-en.png)
 
@@ -30,7 +30,9 @@ Codex Gauge does not send usage alerts or request notification permission. Reset
 
 ## Install the release
 
-Download `Codex-Gauge-v0.2.7-macOS-arm64.zip` from [GitHub Releases](https://github.com/nb851224/codex-gauge/releases), unzip it, and open `Codex Gauge.app`.
+Download the latest macOS arm64 zip from [GitHub Releases](https://github.com/nb851224/codex-gauge/releases), unzip it, and move `Codex Gauge.app` to Applications. You can then open it from Finder, Launchpad, Spotlight, or a desktop alias without opening Codex first.
+
+To restore Codex Gauge automatically after restarting your Mac, open its settings menu and enable **Launch at Login**.
 
 The current prebuilt release supports Apple Silicon and requires macOS 13 or later. Intel users can build from source.
 
@@ -58,8 +60,8 @@ swift run CodexGauge
 - Reads data from the local `codex app-server --stdio` process.
 - Makes no model calls, so refreshing does not generate additional Codex inference usage.
 - Stores usage samples only in local `UserDefaults` for up to 30 days.
-- Refreshes when the App Server reports an update, with a five-minute fallback refresh.
-- Refreshes immediately whenever the menu-bar percentage is clicked.
+- Refreshes when the App Server reports an update, with a 15-minute fallback refresh.
+- Checks freshness whenever the menu-bar gauge opens and refreshes data older than one minute; the panel also provides a manual refresh action.
 - Uses no API key and collects no telemetry.
 
 ![Codex Gauge runs locally without API keys, model calls, or telemetry](Media/campaign/codex-gauge-local-privacy.png)

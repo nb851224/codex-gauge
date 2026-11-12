@@ -1,6 +1,8 @@
 "tagline" = "专注创作，少些顾虑。";
 "back_to_usage" = "返回用量";
 "refresh" = "刷新";
+"launch_at_login" = "登录时自动启动";
+"open_login_items_settings" = "打开登录项设置…";
 "quit_app" = "退出 Codex Gauge";
 "future_available" = "未来可用";
 "weekly_average" = "（按周额度平均）";

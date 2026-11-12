@@ -1,6 +1,8 @@
 "tagline" = "Focus on what matters.";
 "back_to_usage" = "Back to usage";
 "refresh" = "Refresh";
+"launch_at_login" = "Launch at login";
+"open_login_items_settings" = "Open Login Items Settings…";
 "quit_app" = "Quit Codex Gauge";
 "future_available" = "Future availability";
 "weekly_average" = "(weekly quota average)";

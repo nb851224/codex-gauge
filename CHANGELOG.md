@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.8 - 2026-11-12
+
+- Install and launch Codex Gauge as a standalone macOS app without opening Codex first.
+- Add a Launch at Login switch to the existing settings menu.
+- Opening the app from Finder, Launchpad, Spotlight, or a desktop alias reveals the usage panel.
+- Use active macOS HTTP/HTTPS proxies even when a login profile contains an obsolete proxy.
+- Reload the connection and proxy settings after a failed usage read.
+- Recover from stalled initialization and usage requests after a 30-second timeout.
+- Clear old connection callbacks and buffered output when reconnecting.
+- Refresh after wake and keep refresh/retry timers active during menu tracking.
+
 ## 0.2.7 - 2026-09-22
 
 - 放大圆环中心的剩余用量数字，提高菜单栏下的可读性。

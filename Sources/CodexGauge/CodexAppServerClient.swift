@@ -1,4 +1,5 @@
 import Foundation
+import CFNetwork
 import OSLog
 
 struct UsageLimitWindow: Equatable, Identifiable {
@@ -54,6 +55,29 @@ final class CodexAppServerClient {
     private var nextRequestID = 1
     private var responseHandlers: [Int: ([String: Any]) -> Void] = [:]
     private var refreshPending = false
+    private var initialized = false
+    private var generation = 0
+    private var requestTimeouts: [Int: DispatchWorkItem] = [:]
+
+    private let executableURL: URL
+    private let arguments: [String]
+    private let requestTimeout: TimeInterval
+
+    init(executableURL: URL = URL(fileURLWithPath: "/bin/zsh"),
+         arguments: [String] = ["-lc", """
+         if [[ -n ${CODEX_GAUGE_HTTP_PROXY:-} ]]; then
+             export HTTP_PROXY="$CODEX_GAUGE_HTTP_PROXY" http_proxy="$CODEX_GAUGE_HTTP_PROXY"
+         fi
+         if [[ -n ${CODEX_GAUGE_HTTPS_PROXY:-} ]]; then
+             export HTTPS_PROXY="$CODEX_GAUGE_HTTPS_PROXY" https_proxy="$CODEX_GAUGE_HTTPS_PROXY"
+         fi
+         exec codex app-server --stdio
+         """],
+         requestTimeout: TimeInterval = 30) {
+        self.executableURL = executableURL
+        self.arguments = arguments
+        self.requestTimeout = requestTimeout
+    }
 
     func start() {
         queue.async { [weak self] in
@@ -70,23 +94,40 @@ final class CodexAppServerClient {
 
     func stop() {
         queue.sync {
-            process?.terminationHandler = nil
-            process?.terminate()
-            process = nil
-            inputPipe = nil
-            responseHandlers.removeAll()
+            disconnect()
         }
     }
 
+    // Run only on queue. Invalidate callbacks before terminating the old connection.
+    private func disconnect() {
+        generation += 1
+        process?.terminationHandler = nil
+        (process?.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+        (process?.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+        try? inputPipe?.fileHandleForWriting.close()
+        process?.terminate()
+        process = nil
+        inputPipe = nil
+        initialized = false
+        refreshPending = false
+        responseHandlers.removeAll()
+        requestTimeouts.values.forEach { $0.cancel() }
+        requestTimeouts.removeAll()
+        outputBuffer.removeAll()
+    }
+
     private func launch() {
+        disconnect()
+        let connectionGeneration = generation
         logger.info("Launching Codex app server")
         let process = Process()
         let input = Pipe()
         let output = Pipe()
         let error = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "exec codex app-server --stdio"]
+        process.executableURL = executableURL
+        process.arguments = arguments
+        process.environment = Self.systemProxyEnvironment()
         process.standardInput = input
         process.standardOutput = output
         process.standardError = error
@@ -94,7 +135,10 @@ final class CodexAppServerClient {
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
-            self?.queue.async { self?.consume(data) }
+            self?.queue.async {
+                guard let self, self.generation == connectionGeneration else { return }
+                self.consume(data)
+            }
         }
         error.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -106,11 +150,9 @@ final class CodexAppServerClient {
         }
         process.terminationHandler = { [weak self] _ in
             self?.queue.async {
-                self?.process = nil
-                self?.inputPipe = nil
-                self?.responseHandlers.removeAll()
-                self?.refreshPending = false
-                self?.reportError(L10n.text("client_disconnected"))
+                guard let self, self.generation == connectionGeneration else { return }
+                self.disconnect()
+                self.reportError(L10n.text("client_disconnected"))
             }
         }
 
@@ -126,17 +168,49 @@ final class CodexAppServerClient {
         }
     }
 
+    // Login shell profiles can contain a retired proxy. Apply the active macOS
+    // proxy after the profile has run, without changing the user's shell settings.
+    private static func systemProxyEnvironment() -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: "CODEX_GAUGE_HTTP_PROXY")
+        environment.removeValue(forKey: "CODEX_GAUGE_HTTPS_PROXY")
+        guard let settings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any]
+        else { return environment }
+        for (scheme, enabledKey, hostKey, portKey) in [
+            ("HTTP", kCFNetworkProxiesHTTPEnable, kCFNetworkProxiesHTTPProxy, kCFNetworkProxiesHTTPPort),
+            ("HTTPS", kCFNetworkProxiesHTTPSEnable, kCFNetworkProxiesHTTPSProxy, kCFNetworkProxiesHTTPSPort)
+        ] {
+            guard (settings[enabledKey as String] as? NSNumber)?.boolValue == true,
+                  let host = settings[hostKey as String] as? String,
+                  let port = settings[portKey as String] as? NSNumber,
+                  !host.isEmpty, (1...65535).contains(port.intValue) else { continue }
+            var url = URLComponents()
+            url.scheme = "http"
+            url.host = host
+            url.port = port.intValue
+            environment["CODEX_GAUGE_\(scheme)_PROXY"] = url.string
+        }
+        return environment
+    }
+
     private func initialize() {
         sendRequest(
             method: "initialize",
             params: [
-                "clientInfo": ["name": "codex-gauge", "version": "0.2.7"],
+                "clientInfo": ["name": "codex-gauge", "version": "0.2.8"],
                 "capabilities": ["experimentalApi": true]
             ]
-        ) { [weak self] _ in
-            self?.logger.info("Codex app server initialized")
-            self?.sendNotification(method: "initialized")
-            self?.requestRateLimits()
+        ) { [weak self] response in
+            guard let self else { return }
+            guard response["result"] != nil, response["error"] == nil else {
+                self.disconnect()
+                self.reportError(L10n.text("client_disconnected"))
+                return
+            }
+            self.initialized = true
+            self.logger.info("Codex app server initialized")
+            self.sendNotification(method: "initialized")
+            self.requestRateLimits()
         }
     }
 
@@ -145,7 +219,7 @@ final class CodexAppServerClient {
             start()
             return
         }
-        guard !refreshPending else { return }
+        guard initialized, !refreshPending else { return }
         refreshPending = true
         logger.info("Requesting account rate limits")
 
@@ -158,6 +232,7 @@ final class CodexAppServerClient {
             else {
                 let error = String(describing: response["error"] ?? "none")
                 self.logger.error("Unable to parse account rate-limit response; error=\(error, privacy: .public)")
+                self.disconnect()
                 self.reportError(L10n.text("client_usage_unavailable"))
                 return
             }
@@ -254,6 +329,16 @@ final class CodexAppServerClient {
         let id = nextRequestID
         nextRequestID += 1
         responseHandlers[id] = completion
+        let connectionGeneration = generation
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.generation == connectionGeneration,
+                  self.responseHandlers[id] != nil else { return }
+            self.logger.error("App server request timed out: \(method, privacy: .public)")
+            self.disconnect()
+            self.reportError(L10n.text("client_disconnected"))
+        }
+        requestTimeouts[id] = timeout
+        queue.asyncAfter(deadline: .now() + requestTimeout, execute: timeout)
         send(["id": id, "method": method, "params": params])
     }
 
@@ -271,6 +356,7 @@ final class CodexAppServerClient {
         do {
             try inputPipe.fileHandleForWriting.write(contentsOf: data)
         } catch {
+            disconnect()
             reportError(L10n.text("client_disconnected"))
         }
     }
@@ -291,6 +377,7 @@ final class CodexAppServerClient {
     private func handle(_ object: [String: Any]) {
         if let id = (object["id"] as? NSNumber)?.intValue,
            let handler = responseHandlers.removeValue(forKey: id) {
+            requestTimeouts.removeValue(forKey: id)?.cancel()
             handler(object)
             return
         }

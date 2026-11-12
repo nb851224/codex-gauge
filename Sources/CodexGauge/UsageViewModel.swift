@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 @MainActor
 final class UsageViewModel: ObservableObject {
@@ -18,6 +19,9 @@ final class UsageViewModel: ObservableObject {
     private var samples: [UsageSample] = []
     private var refreshTimer: Timer?
     private var retryTimer: Timer?
+    private var failureCount = 0
+    private var lastAttemptAt: Date?
+    private var wakeObserver: NSObjectProtocol?
 
     var menuTitle: String {
         guard let remainingPercent else { return "--" }
@@ -243,26 +247,51 @@ final class UsageViewModel: ObservableObject {
                 self?.scheduleRetry()
             }
         }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.refreshIfNeeded() }
+        }
         start()
     }
 
     func start() {
         client.start()
+        lastAttemptAt = Date()
+        scheduleBackgroundRefresh()
+    }
+
+    private func scheduleBackgroundRefresh() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.client.refresh()
-            }
+        refreshTimer = Timer(timeInterval: 15 * 60, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
         }
+        if let refreshTimer { RunLoop.main.add(refreshTimer, forMode: .common) }
+    }
+
+    func refreshIfNeeded() {
+        guard retryTimer == nil, !isRefreshing else { return }
+        if let lastAttemptAt, Date().timeIntervalSince(lastAttemptAt) < 60 { return }
+        if let lastUpdated, Date().timeIntervalSince(lastUpdated) < 60 { return }
+        refresh()
     }
 
     func refresh() {
+        guard !isRefreshing else { return }
+        refreshTimer?.invalidate()
+        retryTimer?.invalidate()
+        retryTimer = nil
+        lastAttemptAt = Date()
         errorMessage = nil
         isRefreshing = true
         client.refresh()
     }
 
     private func accept(_ snapshot: RateLimitSnapshot) {
+        failureCount = 0
+        scheduleBackgroundRefresh()
+        retryTimer?.invalidate()
+        retryTimer = nil
         errorMessage = nil
         isRefreshing = false
         let sample = UsageSample(
@@ -317,11 +346,22 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func scheduleRetry() {
+        refreshTimer?.invalidate()
         retryTimer?.invalidate()
-        retryTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
+        failureCount = min(failureCount + 1, 5)
+        let delay = min(900.0, 60.0 * pow(2, Double(failureCount - 1)))
+        retryTimer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in
-                self?.client.refresh()
+                self?.refresh()
             }
         }
+        if let retryTimer { RunLoop.main.add(retryTimer, forMode: .common) }
+    }
+
+    deinit {
+        refreshTimer?.invalidate()
+        retryTimer?.invalidate()
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        client.stop()
     }
 }

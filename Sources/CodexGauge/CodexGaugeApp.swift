@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import OSLog
+import ServiceManagement
 import SwiftUI
 
 @main
@@ -15,9 +16,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var openedAt: Date?
     private var hoverCloseTimer: Timer?
     private var hoverExitDeadline: Date?
+    private var keepsLaunchPopoverOpen = false
     private static let statusItemAutosaveName = "CodexGauge.StatusItem"
 
     static func main() {
+        if CommandLine.arguments.contains("--register-login-item") {
+            do {
+                if SMAppService.mainApp.status != .enabled,
+                   SMAppService.mainApp.status != .requiresApproval {
+                    try SMAppService.mainApp.register()
+                }
+                print("Codex Gauge login item status: \(SMAppService.mainApp.status.rawValue)")
+            } catch {
+                fputs("Unable to register Codex Gauge at login: \(error.localizedDescription)\n", stderr)
+            }
+            return
+        }
+
+        if CommandLine.arguments.contains("--unregister-login-item") {
+            do {
+                if SMAppService.mainApp.status != .notRegistered {
+                    try SMAppService.mainApp.unregister()
+                }
+                print("Codex Gauge login item status: \(SMAppService.mainApp.status.rawValue)")
+            } catch {
+                fputs("Unable to unregister Codex Gauge at login: \(error.localizedDescription)\n", stderr)
+            }
+            return
+        }
+
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate
@@ -71,6 +98,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startHoverCloseTimer()
 
         logger.info("Status item ready")
+        revealPopoverFromAppLaunch()
+    }
+
+    func applicationOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        revealPopoverFromAppLaunch()
+        return true
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        revealPopoverFromAppLaunch()
+        return true
+    }
+
+    private func revealPopoverFromAppLaunch() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, !self.popover.isShown, let button = self.statusItem?.button else { return }
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            self.keepsLaunchPopoverOpen = true
+            self.popover.behavior = .applicationDefined
+            button.performClick(nil)
+        }
     }
 
     private func updateStatusItem() {
@@ -232,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPopover(relativeTo button: NSStatusBarButton) {
-        usage.refresh()
+        usage.refreshIfNeeded()
         openedAt = Date()
         hoverExitDeadline = nil
         let anchor = button.bounds.insetBy(dx: 2, dy: 0)
@@ -243,6 +291,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.performClose(sender)
         openedAt = nil
         hoverExitDeadline = nil
+        keepsLaunchPopoverOpen = false
+        popover.behavior = .transient
     }
 
     private func startHoverCloseTimer() {
@@ -257,13 +307,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handlePointerMovement() {
         let pointer = NSEvent.mouseLocation
         guard let button = statusItem?.button, let statusFrame = button.window?.frame else { return }
+        let isOverStatusItem = statusFrame.insetBy(dx: -3, dy: -3).contains(pointer)
+        let isOverPopover = popover.contentViewController?.view.window?.frame
+            .insetBy(dx: -4, dy: -6).contains(pointer) == true
 
-        if statusFrame.insetBy(dx: -3, dy: -3).contains(pointer) {
+        if keepsLaunchPopoverOpen {
+            if isOverStatusItem || isOverPopover {
+                keepsLaunchPopoverOpen = false
+                hoverExitDeadline = nil
+            }
+            return
+        }
+
+        if isOverStatusItem {
             hoverExitDeadline = nil
             if !popover.isShown {
                 showPopover(relativeTo: button)
             }
-        } else if popover.contentViewController?.view.window?.frame.insetBy(dx: -4, dy: -6).contains(pointer) == true {
+        } else if isOverPopover {
             hoverExitDeadline = nil
         } else if popover.isShown, hoverExitDeadline == nil {
             hoverExitDeadline = Date().addingTimeInterval(0.22)
@@ -292,6 +353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 private struct GaugePopover: View {
     @ObservedObject var usage: UsageViewModel
+    @StateObject private var loginItemController = LoginItemController()
     @State private var showResetCards = false
 
     private let accentColor = Color.blue
@@ -312,7 +374,8 @@ private struct GaugePopover: View {
         .frame(width: 374, height: 430)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            usage.refresh()
+            usage.refreshIfNeeded()
+            loginItemController.refresh()
         }
     }
 
@@ -354,6 +417,19 @@ private struct GaugePopover: View {
             }
 
             Menu {
+                Toggle(
+                    L10n.text("launch_at_login"),
+                    isOn: Binding(
+                        get: { loginItemController.isEnabled },
+                        set: { loginItemController.setEnabled($0) }
+                    )
+                )
+                if loginItemController.requiresApproval {
+                    Button(L10n.text("open_login_items_settings")) {
+                        loginItemController.openSystemSettings()
+                    }
+                }
+                Divider()
                 Button(L10n.text("refresh")) {
                     usage.refresh()
                 }
